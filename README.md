@@ -1,12 +1,16 @@
 # PluginTrayIcon
 Rainmeter plugin to create tray icon for your skin
 
+## Restrictions:
+Due to my lack of knowledge, I couldn't find a way to load images of other formats. So only `.ico` files are supported.
+
 ## Usage:
 ```ini
 [MeasureTray]
 Measure=Plugin
 Plugin=TrayIcon
-IconName=path\to\icon
+; Only .ico files
+IconName=path\to\icon.ico
 ToolTipText=TrayIcon Plugin Example
 LeftMouseUpAction=[!ToggleFade]
 RightMouseUpAction=[!SkinMenu]
