@@ -24,7 +24,6 @@ struct Measure
 	std::wstring tooltip;
 	HICON icon;
 
-	HHOOK hook;
 	bool active;
 
 
@@ -35,7 +34,6 @@ struct Measure
 		iconName(),
 		tooltip(),
 		icon(),
-		hook(),
 		active(false)
 	{
 	}
