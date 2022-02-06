@@ -232,19 +232,20 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam) {
 
 	CWPSTRUCT* cps = (CWPSTRUCT*)lParam;
 	Measure* currentMeasure = nullptr;
-	for (auto m : g_Measures) {
-		if (m->skinWnd == cps->hwnd) {
-			currentMeasure = m;
-		}
-	}
-
-	if (!currentMeasure) {
-		return CallNextHookEx(g_hook, nCode, wParam, lParam);
-	}
 
 	switch (cps->message)
 	{
 	case WM_TRAY_NOTIFYICON:
+		for (auto m : g_Measures) {
+			if (m->skinWnd == cps->hwnd) {
+				currentMeasure = m;
+			}
+		}
+
+		if (!currentMeasure) {
+			return CallNextHookEx(g_hook, nCode, wParam, lParam);
+		}
+
 		switch (cps->lParam) {
 		case WM_LBUTTONUP:
 			RmExecute(currentMeasure->skin, currentMeasure->lmbUpAction.c_str());
@@ -255,7 +256,6 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam) {
 		default:
 			break;
 		}
-		return CallNextHookEx(g_hook, nCode, wParam, lParam);
 	default:
 		break;
 	}
