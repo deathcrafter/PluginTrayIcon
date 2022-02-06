@@ -1,8 +1,9 @@
-# PluginTrayIcon
+# Plugin TrayIcon
 Rainmeter plugin to create tray icon for your skin
 
-## Restrictions:
-Due to my lack of knowledge, I couldn't find a way to load images of other formats. So only `.ico` files are supported.
+## Limitations:
+- There can only be one tray icon per skin.
+- Only `.ico` files are supported.
 
 ## Usage:
 ```ini
