@@ -23,7 +23,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 // global variables
 HINSTANCE g_instance = NULL;
+HHOOK g_hook = NULL;
 std::vector<Measure*> g_Measures;
+
+// =========================================================
+// Dll Entry
+// =========================================================
 
 BOOL WINAPI DllMain(HINSTANCE hinst, DWORD ul_reason_for_call, LPWORD lpReserved) {
 	switch (ul_reason_for_call) {
@@ -48,6 +53,8 @@ PLUGIN_EXPORT void Initialize(void** data, void* rm)
 	*data = measure;
 }
 
+// ----------------------------------------------------------------------------------------------------------------
+
 PLUGIN_EXPORT void Reload(void* data, void* rm, double* maxValue)
 {
 	Measure* measure = (Measure*)data;
@@ -55,6 +62,10 @@ PLUGIN_EXPORT void Reload(void* data, void* rm, double* maxValue)
 	bool requiresUpdate = false;
 
 	std::wstring icon = RmReadPath(measure->rm, L"IconName", L"");
+	size_t len = wcslen(icon.c_str());
+	if (len > 4 && wcscmp(icon.c_str() + len - 4, L".ico")) {
+		icon += L".ico";
+	}
 	if (_wcsicmp(icon.c_str(), measure->iconName.c_str()) != 0) {
 		requiresUpdate = true;
 		measure->iconName = icon;
@@ -76,11 +87,10 @@ PLUGIN_EXPORT void Reload(void* data, void* rm, double* maxValue)
 	measure->lmbUpAction = RmReadString(rm, L"LeftMouseUpAction", L"");
 	measure->rmbUpAction = RmReadString(rm, L"RightMouseUpAction", L"");
 
-	if (!measure->hook) {
+	if (!measure->active)
 		AddMeasure(measure);
-	}
-
-	if (measure->active && requiresUpdate) UpdateNotifIcon(measure);
+	else if (measure->active && requiresUpdate)
+		UpdateNotifIcon(measure);
 }
 
 PLUGIN_EXPORT double Update(void* data)
@@ -98,7 +108,11 @@ PLUGIN_EXPORT void Finalize(void* data)
 
 // ----------------------------------------------------------------------------------------------------------------
 
-void AddNotifIcon(Measure* measure) {	
+// =========================================================
+// Tray Icon Management
+// =========================================================
+
+void AddNotifIcon(Measure* measure) {
 	NOTIFYICONDATA ndi;
 
 	ndi.cbSize = sizeof(NOTIFYICONDATA);
@@ -143,12 +157,17 @@ void DeleteNotifIcon(Measure* measure) {
 	measure->active = !Shell_NotifyIcon(NIM_DELETE, &ndi);
 }
 
+// ----------------------------------------------------------------------------------------------------------------
+
 // =========================================================
-// Measure-List Management
+// Measure List Management
 // =========================================================
 
 void AddMeasure(Measure* measure) {
 	if (std::find(g_Measures.begin(), g_Measures.end(), measure) != g_Measures.end()) {
+		if (!measure->active) {
+			AddNotifIcon(measure);
+		}
 		return;
 	}
 
@@ -159,21 +178,24 @@ void AddMeasure(Measure* measure) {
 		}
 	}
 
-	measure->hook = SetWindowsHookEx(
-		WH_CALLWNDPROC,
-		CallWndProc,
-		g_instance,
-		GetWindowThreadProcessId(measure->skinWnd, NULL)
-	);
+	if (!g_hook) {
+		g_hook = SetWindowsHookEx(
+			WH_CALLWNDPROC,
+			CallWndProc,
+			g_instance,
+			GetWindowThreadProcessId(measure->skinWnd, NULL)
+		);
+		if (g_hook) {
+			RmLog(measure->rm, LOG_DEBUG, L"Successfully started message hook!");
+		}
+		else {
+			RmLog(measure->rm, LOG_ERROR, L"Failed to start message hook!");
+		}
+	}
 
-	if (measure->hook) {
-		RmLog(measure->rm, LOG_DEBUG, L"Successfully started message hook!");
+	if (g_hook) {
 		g_Measures.push_back(measure);
 		AddNotifIcon(measure);
-		return;
-	}
-	else {
-		RmLog(measure->rm, LOG_ERROR, L"Failed to start message hook!");
 	}
 
 	return;
@@ -185,24 +207,27 @@ void RemoveMeasure(Measure* measure) {
 		if (measure->active) {
 			DeleteNotifIcon(measure);
 		}
-		if (measure->hook) {
-			while (UnhookWindowsHookEx(measure->hook) == FALSE) {
+		g_Measures.erase(found);
+	}
+	if (g_Measures.empty()) {
+		if (g_hook) {
+			while (UnhookWindowsHookEx(g_hook) == FALSE) {
 				RmLog(measure->rm, LOG_ERROR, L"Cannot unhook message hook!");
 			}
+			g_hook = NULL;
 		}
-		g_Measures.erase(found);
 	}
 }
 
 // ----------------------------------------------------------------------------------------------------------------
 
 // =========================================================
-// Hook functions
+// Hook Procedure
 // =========================================================
 
 LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam) {
 	if (nCode < 0) {
-		return CallNextHookEx(NULL, nCode, wParam, lParam);
+		return CallNextHookEx(g_hook, nCode, wParam, lParam);
 	}
 
 	CWPSTRUCT* cps = (CWPSTRUCT*)lParam;
@@ -214,13 +239,12 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam) {
 	}
 
 	if (!currentMeasure) {
-		return CallNextHookEx(NULL, nCode, wParam, lParam);
+		return CallNextHookEx(g_hook, nCode, wParam, lParam);
 	}
 
 	switch (cps->message)
 	{
 	case WM_TRAY_NOTIFYICON:
-		//RmLog(currentMeasure->rm, LOG_NOTICE, L"Recieved tray notif!");
 		switch (cps->lParam) {
 		case WM_LBUTTONUP:
 			RmExecute(currentMeasure->skin, currentMeasure->lmbUpAction.c_str());
@@ -231,11 +255,12 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam) {
 		default:
 			break;
 		}
+		return CallNextHookEx(g_hook, nCode, wParam, lParam);
 	default:
 		break;
 	}
 
-	return CallNextHookEx(NULL, nCode, wParam, lParam);
+	return CallNextHookEx(g_hook, nCode, wParam, lParam);
 }
 
 // --------------------------------------------------------------------------------------------------------------
