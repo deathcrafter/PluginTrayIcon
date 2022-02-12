@@ -20,6 +20,8 @@ struct Measure
 	std::wstring iconName;
 	std::wstring lmbUpAction;
 	std::wstring rmbUpAction;
+	std::wstring scrlUpAction;
+	std::wstring scrlDwnAction;
 
 	std::wstring tooltip;
 	HICON icon;
@@ -47,3 +49,4 @@ void AddMeasure(Measure*);
 void RemoveMeasure(Measure*);
 
 LRESULT CALLBACK CallWndProc(int, WPARAM, LPARAM);
+LRESULT CALLBACK LowLevelMouseProc(int, WPARAM, LPARAM);

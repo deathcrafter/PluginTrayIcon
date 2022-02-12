@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2021 Shaktijeet Sahoo
+Copyright (C) 2022 Shaktijeet Sahoo
 
 
 This program is free software; you can redistribute it and/or
@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 // global variables
 HINSTANCE g_instance = NULL;
 HHOOK g_hook = NULL;
+HHOOK g_mouse = NULL;
 std::vector<Measure*> g_Measures;
 
 // =========================================================
@@ -86,6 +87,8 @@ PLUGIN_EXPORT void Reload(void* data, void* rm, double* maxValue)
 
 	measure->lmbUpAction = RmReadString(rm, L"LeftMouseUpAction", L"");
 	measure->rmbUpAction = RmReadString(rm, L"RightMouseUpAction", L"");
+	measure->scrlUpAction = RmReadString(rm, L"MouseScrollUpAction", L"");
+	measure->scrlDwnAction = RmReadString(rm, L"MouseScrollDownAction", L"");
 
 	if (!measure->active)
 		AddMeasure(measure);
@@ -193,6 +196,21 @@ void AddMeasure(Measure* measure) {
 		}
 	}
 
+	if (!g_mouse) {
+		g_mouse = SetWindowsHookEx(
+			WH_MOUSE_LL,
+			LowLevelMouseProc,
+			g_instance,
+			NULL
+		);
+		if (g_mouse) {
+			RmLog(measure->rm, LOG_DEBUG, L"Successfully started mouse hook!");
+		}
+		else {
+			RmLog(measure->rm, LOG_ERROR, L"Failed to start mouse hook!");
+		}
+	}
+
 	if (g_hook) {
 		g_Measures.push_back(measure);
 		AddNotifIcon(measure);
@@ -215,6 +233,10 @@ void RemoveMeasure(Measure* measure) {
 				RmLog(measure->rm, LOG_ERROR, L"Cannot unhook message hook!");
 			}
 			g_hook = NULL;
+			while (UnhookWindowsHookEx(g_mouse) == FALSE) {
+				RmLog(measure->rm, LOG_ERROR, L"Cannot unhook mouse hook!");
+			}
+			g_mouse = NULL;
 		}
 	}
 }
@@ -261,6 +283,43 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam) {
 	}
 
 	return CallNextHookEx(g_hook, nCode, wParam, lParam);
+}
+
+LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
+	if (nCode < 0) {
+		return CallNextHookEx(g_mouse, nCode, wParam, lParam);
+	}
+
+	MSLLHOOKSTRUCT* msw;
+	switch (wParam)
+	{
+	case WM_MOUSEWHEEL:
+		msw = (MSLLHOOKSTRUCT*)lParam;
+		POINT pt = msw->pt;
+		for (auto m : g_Measures) {
+			NOTIFYICONIDENTIFIER nii;
+			nii.cbSize = sizeof(NOTIFYICONIDENTIFIER);
+			nii.hWnd = m->skinWnd;
+			nii.uID = 1;
+			nii.guidItem = GUID_NULL;
+			RECT rc;
+			if (SUCCEEDED(Shell_NotifyIconGetRect(&nii, &rc))) {
+				if (pt.x > rc.left && pt.x < rc.right && pt.y > rc.top && pt.y < rc.bottom) {
+					if ((short)HIWORD(msw->mouseData) < 0) {
+						RmExecute(m->skin, m->scrlDwnAction.c_str());
+					}
+					else {
+						RmExecute(m->skin, m->scrlUpAction.c_str());
+					}
+				}
+			}
+		}
+		break;
+	default:
+		break;
+	}
+
+	return CallNextHookEx(g_mouse, nCode, wParam, lParam);
 }
 
 // --------------------------------------------------------------------------------------------------------------
