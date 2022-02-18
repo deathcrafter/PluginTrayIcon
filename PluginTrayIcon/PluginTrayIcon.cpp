@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2022 Shaktijeet Sahoo
+Copyright (C) 2021 Shaktijeet Sahoo
 
 
 This program is free software; you can redistribute it and/or
@@ -18,7 +18,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 
-#include "PluginHotInput.h"
+#include "PluginTrayIcon.h"
 
 
 // global variables
@@ -70,6 +70,10 @@ PLUGIN_EXPORT void Reload(void* data, void* rm, double* maxValue)
 	if (_wcsicmp(icon.c_str(), measure->iconName.c_str()) != 0) {
 		requiresUpdate = true;
 		measure->iconName = icon;
+		if (measure->icon) {
+			DestroyIcon(measure->icon);
+			measure->icon = nullptr;
+		}
 		measure->icon = (HICON)LoadImage(
 			g_instance,
 			measure->iconName.c_str(),
@@ -224,6 +228,11 @@ void RemoveMeasure(Measure* measure) {
 	if (found != g_Measures.end()) {
 		if (measure->active) {
 			DeleteNotifIcon(measure);
+
+			if (measure->icon) {
+				DestroyIcon(measure->icon);
+				measure->icon = nullptr;
+			}
 		}
 		g_Measures.erase(found);
 	}

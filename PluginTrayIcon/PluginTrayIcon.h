@@ -9,7 +9,7 @@
 
 // messages
 
-#define WM_TRAY_NOTIFYICON WM_APP + 101
+#define WM_TRAY_NOTIFYICON WM_APP + 594
 
 struct Measure
 {
