@@ -29,8 +29,6 @@ DynamicVariables=1
 ```
 
 ## Build Instructions:
-- Clone [rainmeter-plugins-sdk](https://github.com/rainmeter/rainmeter-plugin-sdk)
-- Place the source files in PluginEmpty under C++.
-- Rename the PluginTrayIcon.cpp to PluginEmpty.cpp.
-- Change build target names.
-- Build.
+- Clone the repo.
+- Download Visual Studio 2019 or up (if you don't have it already)
+- Open PluginTrayIcon.sln and build the PluginTrayIcon project.
